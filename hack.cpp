@@ -62,9 +62,14 @@ void hack::Glow(remote::Handle* csgo, remote::MapModuleMemoryRegion* client) {
         } else {
             std::cout << "Unable to read entity..." << std::endl;
         }
-    }
 
-    csgo->Write(manager.m_GlowObjectDefinitions.DataPtr, glowArray, sizeof(hack::GlowObjectDefinition_t) * manager.m_GlowObjectDefinitions.Count);
+        // We're going to try to avoid overwriting the entity pointer
+        // This causes problems when entity pointers change and we overwrite the new one with the old!
+        csgo->Write(
+                ((uint8_t*) manager.m_GlowObjectDefinitions.DataPtr + (sizeof(hack::GlowObjectDefinition_t) * i)) + sizeof(void*),
+                ((uint8_t*) &glowArray[i]) + sizeof(void*),
+                sizeof(hack::GlowObjectDefinition_t) - sizeof(void*));
+    }
 
     delete[] glowArray;
 }
