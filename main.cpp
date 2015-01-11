@@ -11,7 +11,7 @@ int main() {
         return 0;
     }
 
-    cout << "s0beit linux hack version 1.0" << endl;
+    cout << "s0beit linux hack version 1.1" << endl;
 
     log::init();
     log::put("Hack loaded...");
@@ -57,7 +57,7 @@ int main() {
         hack::Glow(&csgo, &client);
 
         //sleep(2);
-        usleep(10000);
+        usleep(5000);
     }
 
     cout << "Game ended." << endl;

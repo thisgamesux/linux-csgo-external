@@ -1,6 +1,9 @@
 #include <iomanip>
 #include "hack.hpp"
 
+struct iovec g_remote[1024], g_local[1024];
+struct hack::GlowObjectDefinition_t g_glow[1024];
+
 void Radar(remote::Handle* csgo, remote::MapModuleMemoryRegion* client, void* ent) {
     unsigned char spotted = 1;
 
@@ -11,65 +14,71 @@ void hack::Glow(remote::Handle* csgo, remote::MapModuleMemoryRegion* client) {
     if(!csgo || !client)
         return;
 
-    void* glowClassAddress = (void*) (client->start + 0x054612C0);
+    // Reset
+    bzero(g_remote, sizeof(g_remote));
+    bzero(g_local, sizeof(g_local));
+    bzero(g_glow, sizeof(g_glow));
 
     hack::CGlowObjectManager manager;
 
-    if(!csgo->Read(glowClassAddress, &manager, sizeof(hack::CGlowObjectManager))) {
+    if(!csgo->Read((void*) (client->start + 0x054612C0), &manager, sizeof(hack::CGlowObjectManager))) {
         std::cout << "Failed to read glowClassAddress" << std::endl;
         return;
     }
 
-    hack::GlowObjectDefinition_t* glowArray = new hack::GlowObjectDefinition_t[manager.m_GlowObjectDefinitions.Count];
+    size_t count = manager.m_GlowObjectDefinitions.Max;
 
-    if(!csgo->Read(manager.m_GlowObjectDefinitions.DataPtr, glowArray, sizeof(hack::GlowObjectDefinition_t) * manager.m_GlowObjectDefinitions.Count)) {
+    void* data_ptr = (void*) manager.m_GlowObjectDefinitions.DataPtr;
+
+    if(!csgo->Read(data_ptr, g_glow, sizeof(hack::GlowObjectDefinition_t) * count)) {
         std::cout << "Failed to read m_GlowObjectDefinitions" << std::endl;
-        delete[] glowArray;
         return;
     }
 
-    for(unsigned int i = 0; i < manager.m_GlowObjectDefinitions.Count; i++) {
-        if(glowArray[i].m_pEntity == NULL)
-            continue;
+    size_t writeCount = 0;
 
-        hack::Entity ent;
+    for(unsigned int i = 0; i < count; i++) {
+        if(g_glow[i].m_pEntity != NULL) {
+            hack::Entity ent;
 
-        if(csgo->Read(glowArray[i].m_pEntity, &ent, sizeof(hack::Entity))) {
-            if(ent.m_iTeamNum != 2 && ent.m_iTeamNum != 3) {
-                glowArray[i].m_bRenderWhenOccluded = 0;
-                glowArray[i].m_bRenderWhenUnoccluded = 0;
-                continue;
+            if(csgo->Read(g_glow[i].m_pEntity, &ent, sizeof(hack::Entity))) {
+                if(ent.m_iTeamNum != 2 && ent.m_iTeamNum != 3) {
+                    g_glow[i].m_bRenderWhenOccluded = 0;
+                    g_glow[i].m_bRenderWhenUnoccluded = 0;
+                    continue;
+                }
+
+                // Radar Hack
+                Radar(csgo, client, g_glow[i].m_pEntity);
+
+                g_glow[i].m_bRenderWhenOccluded = 1;
+                g_glow[i].m_bRenderWhenUnoccluded = 0;
+
+                if(ent.m_iTeamNum == 2) {
+                    g_glow[i].m_flGlowRed = 1.0f;
+                    g_glow[i].m_flGlowGreen = 0.0f;
+                    g_glow[i].m_flGlowBlue = 0.0f;
+                    g_glow[i].m_flGlowAlpha = 0.8f;
+
+                } else if(ent.m_iTeamNum == 3) {
+                    g_glow[i].m_flGlowRed = 0.0f;
+                    g_glow[i].m_flGlowGreen = 0.0f;
+                    g_glow[i].m_flGlowBlue = 1.0f;
+                    g_glow[i].m_flGlowAlpha = 0.8f;
+                }
             }
-
-            // Radar Hack
-            Radar(csgo, client, glowArray[i].m_pEntity);
-
-            glowArray[i].m_bRenderWhenOccluded = 1;
-            glowArray[i].m_bRenderWhenUnoccluded = 0;
-
-            if(ent.m_iTeamNum == 2) {
-                glowArray[i].m_flGlowRed = 1.0f;
-                glowArray[i].m_flGlowGreen = 0.0f;
-                glowArray[i].m_flGlowBlue = 0.0f;
-                glowArray[i].m_flGlowAlpha = 0.6f;
-
-            } else if(ent.m_iTeamNum == 3) {
-                glowArray[i].m_flGlowRed = 0.0f;
-                glowArray[i].m_flGlowGreen = 0.0f;
-                glowArray[i].m_flGlowBlue = 1.0f;
-                glowArray[i].m_flGlowAlpha = 0.6f;
-            }
-        } else {
-            std::cout << "Unable to read entity..." << std::endl;
         }
 
-        // We're going to try to avoid overwriting the entity pointer
-        // This causes problems when entity pointers change and we overwrite the new one with the old!
-        csgo->Write(
-                ((uint8_t*) manager.m_GlowObjectDefinitions.DataPtr + (sizeof(hack::GlowObjectDefinition_t) * i)) + sizeof(void*),
-                ((uint8_t*) &glowArray[i]) + sizeof(void*),
-                sizeof(hack::GlowObjectDefinition_t) - sizeof(void*));
+        size_t bytesToCutOffEnd = sizeof(hack::GlowObjectDefinition_t) - g_glow[i].writeEnd();
+        size_t bytesToCutOffBegin = (size_t) g_glow[i].writeStart();
+        size_t totalWriteSize = (sizeof(hack::GlowObjectDefinition_t) - (bytesToCutOffBegin + bytesToCutOffEnd));
+
+        g_remote[writeCount].iov_base = ((uint8_t*) data_ptr + (sizeof(hack::GlowObjectDefinition_t) * i)) + bytesToCutOffBegin;
+        g_local[writeCount].iov_base = ((uint8_t*) &g_glow[i]) + bytesToCutOffBegin;
+        g_remote[writeCount].iov_len = g_local[writeCount].iov_len = totalWriteSize;
+
+        writeCount++;
     }
 
-    delete[] glowArray;
+    process_vm_writev(csgo->GetPid(), g_local, writeCount, g_remote, writeCount, 0);
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stddef.h>
 #include "remote.hpp"
 #include "log.hpp"
 
@@ -31,6 +32,14 @@ namespace hack {
 
         bool IsUnused() const {
             return m_nNextFreeSlot != GlowObjectDefinition_t::ENTRY_IN_USE;
+        }
+
+        long writeStart() {
+            return (long(&(this)->m_flGlowRed) - long(this));
+        }
+
+        long writeEnd() {
+            return (long(&(this)->unk5) - long(this));
         }
 
         void*           m_pEntity;                      //0000
