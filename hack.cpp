@@ -1,12 +1,23 @@
 #include "hack.hpp"
+#include "netvar.hpp"
 
 struct iovec g_remote[1024], g_local[1024];
 struct hack::GlowObjectDefinition_t g_glow[1024];
 
+int cachedSpottedAddress = -1;
+
 void Radar(remote::Handle* csgo, remote::MapModuleMemoryRegion* client, void* ent) {
+    if(cachedSpottedAddress == -1) {
+        cachedSpottedAddress = netvar::GetOffset("CBaseEntity", "m_bSpotted");
+    }
+
+    // give up :(
+    if(cachedSpottedAddress == -1)
+        return;
+
     unsigned char spotted = 1;
 
-    csgo->Write((void*)((unsigned long) ent + 0x929), &spotted, sizeof(unsigned char));
+    csgo->Write((void*)((unsigned long) ent + cachedSpottedAddress), &spotted, sizeof(unsigned char));
 }
 
 void hack::Glow(remote::Handle* csgo, remote::MapModuleMemoryRegion* client, unsigned long glowAddress) {
@@ -21,7 +32,7 @@ void hack::Glow(remote::Handle* csgo, remote::MapModuleMemoryRegion* client, uns
     hack::CGlowObjectManager manager;
 
     if(!csgo->Read((void*) glowAddress, &manager, sizeof(hack::CGlowObjectManager))) {
-        std::cout << "Failed to read glowClassAddress" << std::endl;
+        // std::cout << "Failed to read glowClassAddress" << std::endl;
         return;
     }
 
@@ -30,7 +41,7 @@ void hack::Glow(remote::Handle* csgo, remote::MapModuleMemoryRegion* client, uns
     void* data_ptr = (void*) manager.m_GlowObjectDefinitions.DataPtr;
 
     if(!csgo->Read(data_ptr, g_glow, sizeof(hack::GlowObjectDefinition_t) * count)) {
-        std::cout << "Failed to read m_GlowObjectDefinitions" << std::endl;
+        // std::cout << "Failed to read m_GlowObjectDefinitions" << std::endl;
         return;
     }
 
