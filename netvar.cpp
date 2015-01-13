@@ -42,7 +42,7 @@ netvar::class_t read_class(remote::Handle game, remote::MapModuleMemoryRegion cl
 bool netvar::Cache(remote::Handle game, remote::MapModuleMemoryRegion client) {
     g_classes.clear();
 
-    cout << "Address of thing: " << std::hex << client.start + 0x01492B30 << endl;
+    // cout << "Address of thing: " << std::hex << client.start + 0x01492B30 << endl;
 
     //09 84 8E D4 F5 01 00
     //or      [esi+ecx*4+1F5D4h], eax
@@ -65,7 +65,7 @@ bool netvar::Cache(remote::Handle game, remote::MapModuleMemoryRegion client) {
         return false;
     }
 
-    cout << "codeOfClientClassHead: " << std::hex << codeOfClientClassHead << endl;
+    // cout << "codeOfClientClassHead: " << std::hex << codeOfClientClassHead << endl;
 
     void* addressOfClientClassHead = NULL;
 
@@ -75,7 +75,7 @@ bool netvar::Cache(remote::Handle game, remote::MapModuleMemoryRegion client) {
         return false;
     }
 
-    cout << "addressOfClientClassHead: " << std::hex << addressOfClientClassHead << endl;
+    // cout << "addressOfClientClassHead: " << std::hex << addressOfClientClassHead << endl;
 
     if(addressOfClientClassHead == 0) {
         cout << "Error reading ClientClassHead address" << endl;
@@ -116,7 +116,7 @@ bool netvar::Cache(remote::Handle game, remote::MapModuleMemoryRegion client) {
         }
     }
 
-    cout << "Netvars done" << endl;
+    // cout << "Netvars done" << endl;
 
     return (g_classes.size() > 0);
 }
