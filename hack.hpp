@@ -103,5 +103,5 @@ namespace hack {
         float x, y;
     };
 
-    extern void Glow(remote::Handle* csgo, remote::MapModuleMemoryRegion* client);
+    extern void Glow(remote::Handle* csgo, remote::MapModuleMemoryRegion* client, unsigned long glowAddress);
 };
