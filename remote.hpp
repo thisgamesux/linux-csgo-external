@@ -17,6 +17,8 @@
 #include <fstream>
 
 namespace remote {
+    class Handle;
+
     struct MapModuleMemoryRegion {
     public:
         // Memory
@@ -36,6 +38,8 @@ namespace remote {
         unsigned long inodeFileNumber;
         std::string pathname;
         std::string filename;
+
+        void* find(Handle handle, const char* data, const char* pattern);
     };
 
     class Handle {
@@ -55,6 +59,8 @@ namespace remote {
 
         bool Write(void* address, void* buffer, size_t size);
         bool Read(void* address, void* buffer, size_t size);
+
+        unsigned long GetCallAddress(void* address);
 
         MapModuleMemoryRegion* GetRegionOfAddress(void* address);
 

@@ -1,7 +1,61 @@
 #include "remote.hpp"
 #include "log.hpp"
 
+// Change size if you want to change read chunk size
+char findBuffer[0x1000];
+
 namespace remote {
+    // Map Module
+    void* MapModuleMemoryRegion::find(Handle handle, const char* data, const char* pattern) {
+        size_t len = strlen(pattern);
+        size_t chunksize = sizeof(findBuffer);
+
+        for(size_t i = this->start; i < this->end; i += chunksize) {
+            bzero(findBuffer, chunksize);
+
+            struct iovec local, remote;
+
+            local.iov_base = findBuffer;
+            local.iov_len = chunksize;
+            remote.iov_base = (void*) i;
+            remote.iov_len = chunksize;
+
+            ssize_t read = process_vm_readv(handle.GetPid(), &local, 1, &remote, 1, 0);
+
+            if(read == -1) {
+                // std::cout << "Error reading [" << std::hex << i << "]" << std::endl;
+                continue;
+            }
+
+            if(read != chunksize) {
+                // std::cout << "Only read [" << read << "] of [" << chunksize << "]" << std::endl;
+                continue;
+            }
+
+            for(size_t b = 0; b < chunksize; b++) {
+                size_t matches = 0;
+
+                while(findBuffer[b + matches] == data[matches] || pattern[matches] != 'x') {
+                    matches++;
+
+                    // std::cout << "Potential match found at [" << matches << "][" << i << "][" << b << "]" << std::endl;
+
+                    if(matches == len) {
+                        return (char*) (i + b);
+                    }
+                }
+            }
+
+            // We'll just shorten the last one
+            if(i + chunksize >= this->end) {
+                i -= ((i + chunksize) - this->end);
+            }
+        }
+
+        return NULL;
+    }
+
+    // Handle
     Handle::Handle(pid_t target) {
         std::stringstream buffer;
         buffer << target;
@@ -63,6 +117,16 @@ namespace remote {
         remote[0].iov_len = size;
 
         return (process_vm_readv(pid, local, 1, remote, 1, 0) == size);
+    }
+
+    unsigned long Handle::GetCallAddress(void* address) {
+        unsigned long code = 0;
+
+        if(Read((char*) address + 1, &code, sizeof(unsigned long))) {
+            return code + (unsigned long) address + 5;
+        }
+
+        return 0;
     }
 
     MapModuleMemoryRegion* Handle::GetRegionOfAddress(void* address) {
