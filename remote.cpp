@@ -1,55 +1,40 @@
 #include "remote.hpp"
 #include "log.hpp"
 
-// Change size if you want to change read chunk size
-char findBuffer[0x1000];
+#define FINDPATTERN_CHUNKSIZE 0x1000
 
 namespace remote {
     // Map Module
     void* MapModuleMemoryRegion::find(Handle handle, const char* data, const char* pattern) {
+        char buffer[FINDPATTERN_CHUNKSIZE];
+
         size_t len = strlen(pattern);
-        size_t chunksize = sizeof(findBuffer);
+        size_t chunksize = sizeof(buffer);
+        size_t totalsize = this->end - this->start;
+        size_t chunknum = 0;
 
-        for(size_t i = this->start; i < this->end; i += chunksize) {
-            bzero(findBuffer, chunksize);
+        while(totalsize) {
+            size_t readsize = (totalsize < chunksize) ? totalsize : chunksize;
+            size_t readaddr = this->start + (chunksize * chunknum);
 
-            struct iovec local, remote;
+            bzero(buffer, chunksize);
 
-            local.iov_base = findBuffer;
-            local.iov_len = chunksize;
-            remote.iov_base = (void*) i;
-            remote.iov_len = chunksize;
+            if(handle.Read((void*) readaddr, buffer, readsize)) {
+                for(size_t b = 0; b < readsize; b++) {
+                    size_t matches = 0;
 
-            ssize_t read = process_vm_readv(handle.GetPid(), &local, 1, &remote, 1, 0);
+                    while(buffer[b + matches] == data[matches] || pattern[matches] != 'x') {
+                        matches++;
 
-            if(read == -1) {
-                // std::cout << "Error reading [" << std::hex << i << "]" << std::endl;
-                continue;
-            }
-
-            if(read != chunksize) {
-                // std::cout << "Only read [" << read << "] of [" << chunksize << "]" << std::endl;
-                continue;
-            }
-
-            for(size_t b = 0; b < chunksize; b++) {
-                size_t matches = 0;
-
-                while(findBuffer[b + matches] == data[matches] || pattern[matches] != 'x') {
-                    matches++;
-
-                    // std::cout << "Potential match found at [" << matches << "][" << i << "][" << b << "]" << std::endl;
-
-                    if(matches == len) {
-                        return (char*) (i + b);
+                        if(matches == len) {
+                            return (char*) (readaddr + b);
+                        }
                     }
                 }
             }
 
-            // We'll just shorten the last one
-            if(i + chunksize >= this->end) {
-                i -= ((i + chunksize) - this->end);
-            }
+            totalsize -= readsize;
+            chunknum++;
         }
 
         return NULL;
