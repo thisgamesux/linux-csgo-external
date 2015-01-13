@@ -1,4 +1,3 @@
-#include <iomanip>
 #include "hack.hpp"
 
 struct iovec g_remote[1024], g_local[1024];
@@ -10,7 +9,7 @@ void Radar(remote::Handle* csgo, remote::MapModuleMemoryRegion* client, void* en
     csgo->Write((void*)((unsigned long) ent + 0x929), &spotted, sizeof(unsigned char));
 }
 
-void hack::Glow(remote::Handle* csgo, remote::MapModuleMemoryRegion* client) {
+void hack::Glow(remote::Handle* csgo, remote::MapModuleMemoryRegion* client, unsigned long glowAddress) {
     if(!csgo || !client)
         return;
 
@@ -21,12 +20,12 @@ void hack::Glow(remote::Handle* csgo, remote::MapModuleMemoryRegion* client) {
 
     hack::CGlowObjectManager manager;
 
-    if(!csgo->Read((void*) (client->start + 0x054612C0), &manager, sizeof(hack::CGlowObjectManager))) {
+    if(!csgo->Read((void*) glowAddress, &manager, sizeof(hack::CGlowObjectManager))) {
         std::cout << "Failed to read glowClassAddress" << std::endl;
         return;
     }
 
-    size_t count = manager.m_GlowObjectDefinitions.Max;
+    size_t count = manager.m_GlowObjectDefinitions.Count;
 
     void* data_ptr = (void*) manager.m_GlowObjectDefinitions.DataPtr;
 
